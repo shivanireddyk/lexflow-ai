@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import api from "@/services/api";
 
 import {
@@ -53,6 +54,7 @@ interface Matter {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [leads, setLeads] = useState<Lead[]>([]);
 const [matters, setMatters] = useState<Matter[]>([]);
 const [summary, setSummary] = useState("");
@@ -69,10 +71,19 @@ const [uploading, setUploading] =
     status: "New",
     urgency: 1,
   });
-
 useEffect(() => {
+
+  const token =
+    localStorage.getItem("token");
+
+  if (!token) {
+    router.push("/login");
+    return;
+  }
+
   fetchLeads();
   fetchMatters();
+
 }, []);
 
   const fetchLeads = async () => {
