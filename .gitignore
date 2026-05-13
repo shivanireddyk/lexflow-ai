@@ -1,0 +1,20 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+.next/
+
+# Environment
+.env
+
+# Mac
+.DS_Store
+
+# Uploads
+backend/app/uploads/
+
+# Logs
+*.log
