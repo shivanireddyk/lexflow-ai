@@ -1,3 +1,4 @@
+from app.models.audit import AuditLog
 from fastapi import UploadFile, File
 import fitz
 import os
@@ -26,6 +27,24 @@ from app.auth import (
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+from datetime import datetime
+
+def create_audit_log(
+    db,
+    action,
+    entity,
+    user="system"
+):
+
+    log = AuditLog(
+        action=action,
+        entity=entity,
+        user=user,
+        timestamp=str(datetime.utcnow())
+    )
+
+    db.add(log)
+    db.commit()
 
 # CORS
 app.add_middleware(
@@ -66,6 +85,12 @@ def create_lead(
     db.add(new_lead)
     db.commit()
     db.refresh(new_lead)
+
+    create_audit_log(
+        db,
+        "Lead Created",
+        new_lead.full_name
+    )
 
     return new_lead
 
@@ -118,7 +143,7 @@ def delete_lead(
     db.commit()
 
     return {"message": "Lead deleted successfully"}
-# Create Matter
+
 @app.post("/matters", response_model=MatterResponse)
 def create_matter(
     matter: MatterCreate,
@@ -135,6 +160,12 @@ def create_matter(
     db.add(new_matter)
     db.commit()
     db.refresh(new_matter)
+
+    create_audit_log(
+        db,
+        "Matter Created",
+        new_matter.client_name
+    )
 
     return new_matter
 
@@ -317,3 +348,13 @@ def login_user(
         "access_token": token,
         "token_type": "bearer"
     }
+# Get Audit Logs
+@app.get("/audit-logs")
+def get_audit_logs(
+    db: Session = Depends(get_db)
+):
+    return (
+        db.query(AuditLog)
+        .order_by(AuditLog.id.desc())
+        .all()
+    )

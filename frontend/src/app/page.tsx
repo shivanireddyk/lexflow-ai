@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { jwtDecode } from "jwt-decode";
 import api from "@/services/api";
 
 import {
@@ -11,6 +12,7 @@ import {
   BarChart3,
   Plus,
   Trash2,
+  LogOut,
 } from "lucide-react";
 
 import {
@@ -36,6 +38,14 @@ import {
   YAxis,
 } from "recharts";
 
+interface AuditLog {
+  id: number;
+  action: string;
+  entity: string;
+  user: string;
+  timestamp: string;
+}
+
 interface Lead {
   id: number;
   full_name: string;
@@ -57,12 +67,16 @@ export default function Home() {
   const router = useRouter();
   const [leads, setLeads] = useState<Lead[]>([]);
 const [matters, setMatters] = useState<Matter[]>([]);
+const [auditLogs, setAuditLogs] =
+  useState<AuditLog[]>([]);
 const [summary, setSummary] = useState("");
 
 const [dossier, setDossier] = useState<any>(null);
 
 const [uploading, setUploading] =
   useState(false);
+const [role, setRole] =
+  useState("");
 
   const [formData, setFormData] = useState({
     full_name: "",
@@ -81,8 +95,28 @@ useEffect(() => {
     return;
   }
 
+  try {
+
+    const decoded: any =
+      jwtDecode(token);
+
+    setRole(decoded.role);
+
+  } catch (error) {
+
+    console.error(
+      "Invalid token",
+      error
+    );
+
+    router.push("/login");
+
+    return;
+  }
+
   fetchLeads();
   fetchMatters();
+  fetchAuditLogs();
 
 }, []);
 
@@ -94,6 +128,23 @@ useEffect(() => {
       console.error("Error fetching leads:", error);
     }
   };
+
+const fetchAuditLogs = async () => {
+  try {
+
+    const response =
+      await api.get("/audit-logs");
+
+    setAuditLogs(response.data);
+
+  } catch (error) {
+
+    console.error(
+      "Error fetching audit logs:",
+      error
+    );
+  }
+};
 
 const fetchMatters = async () => {
   try {
@@ -171,6 +222,12 @@ const convertToMatter = async (lead: Lead) => {
   } catch (error) {
     console.error("Error converting lead:", error);
   }
+};
+const logout = () => {
+
+  localStorage.removeItem("token");
+
+  router.push("/login");
 };
 const uploadDocument = async (
   file: File
@@ -294,9 +351,20 @@ setDossier(response.data.dossier);
       {/* Sidebar */}
       <aside className="w-64 bg-slate-900 border-r border-slate-800 p-6">
 
-        <h1 className="text-2xl font-bold mb-10">
-          LexFlow AI
-        </h1>
+       <div className="flex items-center justify-between mb-10">
+
+  <h1 className="text-2xl font-bold">
+    LexFlow AI
+  </h1>
+
+  <button
+    onClick={logout}
+    className="text-slate-400 hover:text-white"
+  >
+    <LogOut size={20} />
+  </button>
+
+</div>
 
         <nav className="space-y-4">
 
@@ -339,6 +407,11 @@ setDossier(response.data.dossier);
               AI-powered legal intake and workflow management.
             </p>
           </div>
+<div className="mt-3 inline-block bg-blue-500/20 text-blue-400 px-4 py-1 rounded-full text-sm">
+
+  {role.toUpperCase()}
+
+</div>
 
           {/* Add Lead */}
           <Dialog>
@@ -441,6 +514,7 @@ setDossier(response.data.dossier);
         </div>
 
         {/* Analytics */}
+{role !== "intake" && (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-10">
 
           {/* Pie Chart */}
@@ -518,9 +592,11 @@ setDossier(response.data.dossier);
 
           </div>
 
-        </div>
+        </div> )}
 
 {/* Matters Section */}
+
+{role !== "intake" && (
 <div className="mt-10 bg-slate-900 border border-slate-800 rounded-2xl p-6">
 
   <div className="flex justify-between items-center mb-6">
@@ -594,7 +670,7 @@ setDossier(response.data.dossier);
 
   </table>
 
-</div>
+</div> )}
 {/* AI Document Intelligence */}
 <div className="mt-10 bg-slate-900 border border-slate-800 rounded-2xl p-6">
 
@@ -738,6 +814,59 @@ setDossier(response.data.dossier);
 
   </div>
 )}
+
+</div>
+{/* Activity Feed */}
+<div className="mt-10 bg-slate-900 border border-slate-800 rounded-2xl p-6">
+
+  <div className="flex justify-between items-center mb-6">
+
+    <h3 className="text-xl font-semibold">
+      Activity Audit Logs
+    </h3>
+
+    <div className="text-sm text-slate-400">
+      Compliance Tracking
+    </div>
+
+  </div>
+
+  <div className="space-y-4">
+
+    {auditLogs.map((log) => (
+      <div
+        key={log.id}
+        className="bg-slate-800 rounded-xl p-4 flex justify-between items-center"
+      >
+
+        <div>
+
+          <p className="font-medium">
+            {log.action}
+          </p>
+
+          <p className="text-sm text-slate-400 mt-1">
+            {log.entity}
+          </p>
+
+        </div>
+
+        <div className="text-right">
+
+          <p className="text-sm text-slate-400">
+            {log.user}
+          </p>
+
+          <p className="text-xs text-slate-500 mt-1">
+            {log.timestamp}
+          </p>
+
+        </div>
+
+      </div>
+    ))}
+
+  </div>
 
 </div>
         {/* Leads Table */}
