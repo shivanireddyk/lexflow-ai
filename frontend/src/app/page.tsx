@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { jwtDecode } from "jwt-decode";
 import api from "@/services/api";
+import toast from "react-hot-toast";
 
 import {
   LayoutDashboard,
@@ -104,19 +105,31 @@ useEffect(() => {
 
   } catch (error) {
 
-    console.error(
-      "Invalid token",
-      error
-    );
-
     router.push("/login");
 
     return;
   }
 
+  const ws = new WebSocket(
+    "ws://127.0.0.1:8000/ws"
+  );
+
+  ws.onmessage = (event) => {
+
+    toast.success(event.data);
+
+    fetchLeads();
+    fetchMatters();
+    fetchAuditLogs();
+  };
+
   fetchLeads();
   fetchMatters();
   fetchAuditLogs();
+
+  return () => {
+    ws.close();
+  };
 
 }, []);
 

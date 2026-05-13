@@ -1,7 +1,10 @@
-from app.models.audit import AuditLog
-from fastapi import UploadFile, File
 import fitz
 import os
+import asyncio
+from app.models.audit import AuditLog
+from fastapi import UploadFile, File
+from fastapi import WebSocket
+from typing import List
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -27,6 +30,27 @@ from app.auth import (
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+active_connections: List[WebSocket] = []
+
+@app.websocket("/ws")
+async def websocket_endpoint(
+    websocket: WebSocket
+):
+    await websocket.accept()
+
+    active_connections.append(websocket)
+
+    try:
+        while True:
+            await websocket.receive_text()
+
+    except:
+        active_connections.remove(websocket)
+async def broadcast_message(
+    message: str
+):
+    for connection in active_connections:
+        await connection.send_text(message)
 from datetime import datetime
 
 def create_audit_log(
@@ -90,6 +114,12 @@ def create_lead(
         db,
         "Lead Created",
         new_lead.full_name
+    )
+
+    asyncio.create_task(
+        broadcast_message(
+            f"New lead created: {new_lead.full_name}"
+        )
     )
 
     return new_lead
@@ -167,8 +197,13 @@ def create_matter(
         new_matter.client_name
     )
 
-    return new_matter
+    asyncio.create_task(
+        broadcast_message(
+            f"Matter created: {new_matter.client_name}"
+        )
+    )
 
+    return new_matter
 # Get All Matters
 @app.get("/matters", response_model=list[MatterResponse])
 def get_matters(
